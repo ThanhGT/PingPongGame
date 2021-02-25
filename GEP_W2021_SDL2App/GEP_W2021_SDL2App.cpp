@@ -8,7 +8,6 @@
 
 using namespace std;
 
-bool isRunning = true;
 SDL_Renderer* renderer;
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
@@ -24,8 +23,57 @@ TTF_Font* font;
 SDL_Texture* fontTexture;
 
 SDL_Rect fontRectScore; // this defines the position of our 'score' text on the screen
-void RenderFont(const char* text, int x, int y, bool isRefreshText);
 
+// checks whether two rectangular objects collide or overlap  with one another 
+bool check_collision(SDL_Rect A, SDL_Rect B)
+{
+	// the sides of the rectangles
+	int leftA, leftB;
+	int rightA, rightB;
+	int topA, topB;
+	int bottomA, bottomB;
+
+	//calculate the sides of rect A
+	leftA = A.x;
+	rightA = A.x + A.w;
+	topA = A.y;
+	bottomA = A.y + A.h;
+
+	//calculate the sides of rect B
+	leftB = B.x;
+	rightB = B.x + B.w;
+	topB = B.y;
+	bottomB = B.y + B.h;
+
+	//if any of the sides from A are outside of B
+	if (bottomA <= topB)
+	{
+		return false;
+	}
+
+	if (topA >= bottomB)
+	{
+		return false;
+	}
+
+	if (rightA <= leftB)
+	{
+		return false;
+	}
+
+	if (leftA >= rightB)
+	{
+		return false;
+	}
+
+	//if none of the sides from A are outside B
+	return true;
+}
+
+void RenderFont(const char* text, int x, int y, bool isRefreshText);
+bool isRunning = true;
+int speed_x, speed_y; // store x and y speeds of the ball
+int direction[2] = { -1, 1 }; // array to store 2 directions of the ball
 int mouseX, mouseY;
 
 bool InitGameEngine();
@@ -85,6 +133,9 @@ void InitGameWorld()
 {
 	font = TTF_OpenFont("Assets/Fonts/LTYPE.TTF", 30); // 30 is inital font size
 
+	speed_x = -1;
+	speed_y = -1;
+
 	playerPaddle.x = 20;
 	playerPaddle.y = WINDOW_HEIGHT * 0.5 - 50; // set it just above the half of the window's center
 	playerPaddle.h = 100;
@@ -138,11 +189,10 @@ void Render()
 	//render the ball
 	SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 	SDL_RenderFillRect(renderer, &ball);
-
+	
 	int score = 45;
 	string s = "score: " + to_string(score);
 	RenderFont(s.c_str(), 30, 50, true);
-
 	SDL_RenderPresent(renderer); // must call this to render the above defined
 }
 
@@ -185,11 +235,41 @@ void Update()
 	playerPaddle.y = mouseY;	// map the playerPaddle's position to the mouse y's position
 
 	// our initial demo ball movement to be removed and replaced with something else later
-	ball.x += 1;
-	ball.y += 1;
+	ball.x += speed_x;
+	ball.y += speed_y;
 
 	// slow down by using SDL Delay
 	SDL_Delay(10);	// pause the game loop for 10 milliseconds to slow down the game to a decent speed
+
+	//checks if ball goes out on the sides of the screen, left and right
+	if (ball.x < 0 || ball.x > WINDOW_WIDTH)
+	{
+		ball.x = WINDOW_WIDTH / 2;
+		ball.y = WINDOW_HEIGHT / 2;
+		//this expression produces random numbers -1, -2, and 2
+		speed_x = (rand() % 2 + 1) * direction[rand() % 2];
+		speed_y = (rand() % 2 + 1) * direction[rand() % 2];
+	}
+
+	// checks if ball goes out on boths sides of the screen, top and bottom
+	if (ball.y < 0 || ball.y > (WINDOW_HEIGHT - ball.h))
+	{
+		// reverse speed if ball hits the top and bottom sides of the window
+		speed_y = -speed_y;
+	}
+
+	// move aiPaddle if ball is heading toward aiPaddle
+	if (ball.x > ((WINDOW_WIDTH/2) - 50))
+	{
+		aiPaddle.y = ball.y - aiPaddle.h / 2 + ball.h / 2;
+	}
+
+	//checks if ball has collided with either paddle and to reverse in direction if so
+	if (check_collision(ball, aiPaddle) || check_collision(ball, playerPaddle))
+	{
+		speed_x = -speed_x;
+	}
+
 }
 
 
